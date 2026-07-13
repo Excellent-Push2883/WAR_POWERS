@@ -1,0 +1,269 @@
+==================================================
+  GENE DELETION SCREEN — INSTRUCTIONS
+==================================================
+
+
+  >>> IMPORTANT (Windows): double-click WAR_POWERS.bat
+      Do NOT double-click WAR_POWERS.sh -- Windows
+      cannot run .sh files directly and will just show an
+      error or open it in Notepad.
+This tool screens your whole genome sequencing BAM file for
+deletions and duplications across 564 pharmacogenomic genes.
+It compares the read depth of each gene against its left and
+right flanking regions to flag anything unusual.
+
+Results are not clinical. Always confirm findings in IGV or
+with a certified lab before drawing any conclusions.
+
+--------------------------------------------------
+  FILES IN THIS FOLDER
+--------------------------------------------------
+
+  WAR_POWERS.sh   Main script (Mac / Linux)
+  WAR_POWERS.bat        Launcher for Windows
+  genes_clean.txt           List of genes to screen (editable)
+  INSTRUCTIONS.txt          This file
+
+You must also have these files in the same folder:
+
+  your_file.bam             Your BAM file (any name is fine,
+                            but only one .bam file at a time)
+  your_file.bam.bai         BAM index (created automatically
+                            if missing)
+
+--------------------------------------------------
+  EDITING THE GENE LIST
+--------------------------------------------------
+
+Open genes_clean.txt in any text editor (Notepad on
+Windows, TextEdit on Mac, or any other editor).
+
+  - One gene name per line
+  - Gene names are case-sensitive (use uppercase)
+  - To remove a gene, delete its line
+  - To add a gene, add it on its own line anywhere
+    in the file
+  - Blank lines are ignored
+
+The script reads this file fresh every time it runs,
+so any changes you make take effect on the next run
+with no other steps needed.
+
+--------------------------------------------------
+  REQUIREMENTS
+--------------------------------------------------
+
+This script is designed for BAM files from sequencing.com.
+It expects:
+  - GRCh38 / hg38 reference genome
+  - No "chr" prefix on chromosome names (e.g. "1" not "chr1")
+
+To confirm your BAM matches, you can run this in Terminal:
+  samtools view -H sample.bam | grep '^@SQ' | head
+
+You should see lines like:
+  SN:1    LN:248956422
+
+If you see SN:chr1 instead, this script will not work
+correctly without modification.
+
+--------------------------------------------------
+  MAC INSTRUCTIONS
+--------------------------------------------------
+
+STEP 1 — Install samtools (one time only)
+
+  Open Terminal and run:
+    brew install samtools
+
+  If you do not have Homebrew installed, go to:
+    https://brew.sh
+  and follow the one-line install command there, then
+  come back and install samtools.
+
+STEP 2 — Place your BAM file in the script folder
+
+  Put your BAM file in the same folder as
+  WAR_POWERS.sh. It can be named anything —
+  no renaming required. Just make sure there is only
+  one .bam file in the folder at a time.
+
+STEP 3 — Open Terminal in the script folder
+
+  Option A: Right-click the folder in Finder,
+            hold the Option key, and choose
+            "Open Terminal Here"
+
+  Option B: Open Terminal, type:
+              cd
+            then drag the folder into the Terminal
+            window and press Enter.
+
+STEP 4 — Run the script
+
+  Type this and press Enter:
+    bash WAR_POWERS.sh
+
+  The script will prompt you to press Enter to begin.
+  After that, everything runs automatically.
+
+STEP 5 — Wait for it to finish
+
+  Runtime is roughly 15 to 60 minutes depending on
+  your computer. Progress prints to the screen as
+  each gene is checked.
+
+--------------------------------------------------
+  WINDOWS INSTRUCTIONS
+--------------------------------------------------
+
+STEP 1 — Place your BAM file in the script folder
+
+  Put your BAM file in the same folder as
+  WAR_POWERS.bat and WAR_POWERS.sh.
+  It can be named anything — no renaming required.
+  Just make sure there is only one .bam file in
+  the folder at a time.
+
+STEP 2 — Run the launcher
+
+  Right-click WAR_POWERS.bat and choose
+  "Run as administrator"
+
+  The launcher will automatically:
+    - Check if WSL (Windows Subsystem for Linux) is installed
+    - Install WSL if it is not (requires a restart — see below)
+    - Check if samtools is installed inside WSL
+    - Install samtools if it is not
+    - Run the deletion screen
+
+STEP 3 — If Windows asks you to restart
+
+  This only happens the first time if WSL was not
+  already installed. Restart your computer, then
+  right-click WAR_POWERS.bat and choose
+  "Run as administrator" again. It will pick up
+  where it left off.
+
+STEP 4 — Ubuntu password prompt
+
+  If samtools needs to be installed, you may be asked
+  for your Ubuntu/WSL password. This is the password
+  you set up when WSL first launched. Type it and
+  press Enter (the cursor will not move while typing —
+  that is normal).
+
+STEP 5 — Wait for it to finish
+
+  Same as Mac — runtime is 15 to 60 minutes.
+  Progress prints to the screen as each gene is checked.
+
+--------------------------------------------------
+  OUTPUT FILES
+--------------------------------------------------
+
+When finished, two files will appear in this folder:
+
+  deletion_all_data.tsv
+    Every gene that was screened, with depth numbers
+    and a call for each one.
+
+  deletion_hits.tsv
+    Only the genes flagged as potential deletions
+    or copy-loss events. This is the one to look at
+    first.
+
+--------------------------------------------------
+  HOW TO READ THE RESULTS
+--------------------------------------------------
+
+Columns in the output:
+
+  gene              Gene name
+  chrom             Chromosome
+  start / end       Gene coordinates
+  gene_depth        Average read depth across the gene
+  left_depth        Average depth in 50kb left of gene
+  right_depth       Average depth in 50kb right of gene
+  flank_mean        Average of left and right depth
+  gene_to_flank_mean  gene_depth divided by flank_mean
+  gene_to_left      gene_depth divided by left_depth
+  gene_to_right     gene_depth divided by right_depth
+  call              See below
+
+Call values:
+
+  NORMAL
+    Gene depth is close to its flanking regions.
+    No flag.
+
+  LIKELY_FULL_DELETION_OR_MAJOR_COPY_LOSS
+    Gene depth is very low (under 5x) while at least
+    one flank has normal coverage (10x or higher).
+    Strong signal. Verify in IGV.
+
+  POSSIBLE_PARTIAL_OR_HET_DELETION
+    Gene depth is less than 75% of BOTH flanks, and
+    both flanks have real coverage (10x or higher).
+    Could be a heterozygous deletion or partial loss.
+    Verify in IGV.
+
+  POSSIBLE_DUPLICATION_OR_HIGH_COPY
+    Gene depth is more than 135% of BOTH flanks.
+    Could be a duplication or extra copy.
+    Verify in IGV.
+
+  NO_CALL
+    Not enough data to make a call. Usually means
+    the region had very low coverage on both the
+    gene and its flanks.
+
+  NOT_FOUND_IN_GENCODE
+    The gene name was not found in the GENCODE v44
+    annotation. Rare — may indicate a gene alias.
+
+--------------------------------------------------
+  IMPORTANT LIMITATIONS
+--------------------------------------------------
+
+- This is NOT a clinical result.
+- Depth-based CNV calling can produce false positives
+  and false negatives, especially near segmental
+  duplications or repetitive regions.
+- Always confirm any hit you care about by viewing
+  the region in IGV and comparing to known depth
+  patterns.
+- The flanking region approach is a screening tool,
+  not a validated CNV caller.
+
+--------------------------------------------------
+  IF SOMETHING GOES WRONG
+--------------------------------------------------
+
+Script says "samtools not found"
+  -> Install samtools (see Step 1 for your OS above)
+
+Script says "No .bam file found"
+  -> Make sure your BAM file is in the same folder
+     as the script
+
+Script says "Multiple .bam files found"
+  -> Only one .bam file is allowed in the folder
+     at a time. Move or remove the extras.
+
+Script says "NOT_FOUND_IN_GENCODE" for many genes
+  -> Your BAM may use chr-prefixed chromosomes.
+     Check with:
+       samtools view -H sample.bam | grep '^@SQ' | head
+
+Script runs but deletion_hits.tsv is empty
+  -> No genes met the deletion thresholds. That is a
+     valid result — it means no flagged deletions
+     were found in this gene list.
+
+Windows says "WSL not found" even after restarting
+  -> Open PowerShell as administrator and run:
+       wsl --install
+     Then restart and try the .bat file again.
+
+==================================================
